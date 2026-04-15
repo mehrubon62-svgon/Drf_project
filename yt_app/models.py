@@ -1,18 +1,11 @@
 from django.db import models
-
-class User(models.Model) : 
-    username = models.CharField(max_length=150)
-    email = models.EmailField()
-    created_at = models.DateTimeField( auto_now_add=True )
-
-    def __str__(self):
-        return self.username
+from django.conf import settings
 
 class Channel(models.Model) :
     name = models.CharField(max_length=200)
     description = models.TextField( blank=True , null=True )
-    owner = models.ForeignKey(User , on_delete=models.CASCADE , related_name='channel1')
-    subscribers = models.ManyToManyField(User , related_name='channel' , blank=True)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL , on_delete=models.CASCADE , related_name='channel1')
+    subscribers = models.ManyToManyField(settings.AUTH_USER_MODEL , related_name='channel' , blank=True)
     created_at = models.DateTimeField( auto_now_add=True )
 
     def __str__(self):
@@ -30,7 +23,7 @@ class Video(models.Model) :
 
 class Comment(models.Model) : 
     text = models.TextField()
-    user = models.ForeignKey(User , on_delete=models.CASCADE , related_name='comment')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL , on_delete=models.CASCADE , related_name='comment')
     video = models.ForeignKey(Video , on_delete=models.CASCADE , related_name='comment')
     created_at = models.DateTimeField( auto_now_add=True )
 
@@ -38,7 +31,7 @@ class Comment(models.Model) :
         return self.text
 
 class Like(models.Model) : 
-    user = models.ForeignKey(User , on_delete=models.CASCADE , related_name='like')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL , on_delete=models.CASCADE , related_name='like')
     video = models.ForeignKey(Video , on_delete=models.CASCADE , related_name='like') 
     created_at = models.DateTimeField( auto_now_add=True )
 
@@ -47,4 +40,3 @@ class Like(models.Model) :
 
     class Meta :
         unique_together = ('user' , 'video')
-

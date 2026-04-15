@@ -18,6 +18,7 @@ schema_view = get_schema_view(
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('' , include('yt_app.urls')),
+    path('account/' , include('accounts.urls')),
 
     # Swagger UI
     re_path(

@@ -15,6 +15,10 @@ from .pagination import CustomPagination
 from .filters import *
 from rest_framework.generics import ListAPIView , CreateAPIView , DestroyAPIView , RetrieveAPIView , UpdateAPIView 
 from rest_framework.views import APIView
+from rest_framework import generics, permissions, status
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 class UserListApiView(ListAPIView) :
     serializer_class = UserSerializer
@@ -27,6 +31,7 @@ class UserListApiView(ListAPIView) :
 
 
 class UserCreateAPIView(CreateAPIView) : 
+    permission_classes = [permissions.IsAuthenticated]
     queryset = User.objects.all()
     serializer_class = UserSerializer
 
@@ -53,11 +58,14 @@ class ChannelListApiView(ListAPIView) :
         )
     
 class ChannelCreateApiView(CreateAPIView) : 
+    permission_classes = [permissions.IsAuthenticated]
     queryset = Channel.objects.all()
     serializer_class = ChannelCreateSerializer
 
     def create(self , request , *args , **kwargs) : 
-        serializer = ChannelCreateSerializer(data=request.data)
+        payload = request.data.copy()
+        payload["owner"] = request.user.id
+        serializer = ChannelCreateSerializer(data=payload)
         serializer.is_valid(raise_exception=True)
         channel = serializer.save()
         return Response(ChannelSerializer(channel).data)
@@ -67,17 +75,26 @@ class ChannelDetailApiView(RetrieveAPIView) :
     serializer_class = ChannelDetailSerializer
 
 class ChannelUpdateApiView(UpdateAPIView) :
+    permission_classes = [permissions.IsAuthenticated]
     queryset = Channel.objects.all()
     serializer_class = ChannelUpdateSerializer
 
+    def get_queryset(self):
+        return Channel.objects.filter(owner=self.request.user)
+
     def update(self , request , *args , **kwargs) : 
-        serializer = ChannelUpdateApiView(data=request.data)
+        channel = self.get_object()
+        serializer = self.get_serializer(channel, data=request.data, partial=kwargs.get("partial", False))
         serializer.is_valid(raise_exception=True)
         channel = serializer.save()
         return Response(ChannelSerializer(channel).data)
     
 class ChannelDeleteApiView(DestroyAPIView) : 
+    permission_classes = [permissions.IsAuthenticated]
     queryset = Channel.objects.all()
+
+    def get_queryset(self):
+        return Channel.objects.filter(owner=self.request.user)
 
     def destroy(self, request, *args, **kwargs):
         channel = self.get_object()  
@@ -99,6 +116,7 @@ class ChannelVideoApiView(ListAPIView) :
         return Video.objects.filter(channel=self.kwargs['pk'])
     
 class ChannelStatsApiView(RetrieveAPIView) :
+    permission_classes = [permissions.IsAuthenticated]
     queryset = Channel.objects.all()
     serializer_class = ChannelStatsSerializer
 
@@ -193,6 +211,7 @@ class VideoRelatedApiView(ListAPIView):
 
 
 class StatsVideosApiView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
     def get(self, request):
         stats = Video.objects.aggregate(
             total_videos=Count('id'),
@@ -203,6 +222,7 @@ class StatsVideosApiView(APIView):
 
 
 class StatsUsersApiView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
     def get(self, request):
         total_users = User.objects.count()
         users_with_channels = User.objects.filter(channel1__isnull=False).distinct().count()
@@ -219,6 +239,7 @@ class StatsUsersApiView(APIView):
 
 
 class StatsChannelsApiView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
     def get(self, request):
         channels = Channel.objects.annotate(
             channel_views=Coalesce(Sum('video__views'), 0),
@@ -238,14 +259,20 @@ class StatsChannelsApiView(APIView):
         return Response(ChannelStatsGlobalSerializer(data).data)
 
 class VideoCreateApiView(CreateAPIView) :
+    permission_classes = [permissions.IsAuthenticated]
     queryset = Channel.objects.all()
     serializer_class = VideoCreateSerializer
 
     def create(self , request , *args , **kwargs) : 
         serializer = VideoCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        channel = serializer.save()
-        return Response(VideoSerializer(channel).data)
+        if serializer.validated_data["channel"].owner_id != request.user.id:
+            return Response(
+                {"detail": "You can create videos only in your channel"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        video = serializer.save()
+        return Response(VideoSerializer(video).data)
     
 class VideoDetailApiView(RetrieveAPIView) :
     queryset = Video.objects.all()
@@ -259,8 +286,12 @@ class VideoDetailApiView(RetrieveAPIView) :
         return Response(serializer.data)
     
 class VideoUpdateApiView(UpdateAPIView) : 
+    permission_classes = [permissions.IsAuthenticated]
     queryset = Video.objects.all()
     serializer_class = VideoCreateSerializer
+
+    def get_queryset(self):
+        return Video.objects.filter(channel__owner=self.request.user)
     
     def update(self, request, *args, **kwargs):
         video = self.get_object()
@@ -289,7 +320,11 @@ class VideoUpdateApiView(UpdateAPIView) :
     
 
 class VideoDeleteApiView(DestroyAPIView) : 
+    permission_classes = [permissions.IsAuthenticated]
     queryset = Video.objects.all()
+
+    def get_queryset(self):
+        return Video.objects.filter(channel__owner=self.request.user)
 
     def destroy(self, request, *args, **kwargs):
         video = self.get_object()  
@@ -318,16 +353,18 @@ class CommentsListAPiView(ListAPIView) :
         return Comment.objects.filter(user_id = user_id)
     
 
-class CommentCreateApiView(CreateAPIView) : 
+class CommentCreateApiView(CreateAPIView) :
+    permission_classes = [permissions.IsAuthenticated] 
     queryset = Comment.objects.all()
     serializer_class = CommentCreateSerializer
 
     def create(self , request , *args , **kwargs) : 
-        serializer = CommentCreateSerializer(data=request.data)
+        payload = request.data.copy()
+        payload["user"] = request.user.id
+        serializer = CommentCreateSerializer(data=payload)
         serializer.is_valid(raise_exception=True)
-        serializer.save(video_id=self.kwargs['pk'])
-        channel = serializer.save()
-        return Response(CommentSerializer(channel).data)
+        comment = serializer.save(video_id=self.kwargs['pk'])
+        return Response(CommentSerializer(comment).data)
     
 class CommentDetailApiView(RetrieveAPIView) :
     queryset = Comment.objects.all()
@@ -335,7 +372,11 @@ class CommentDetailApiView(RetrieveAPIView) :
 
 
 class CommentDeleteApiView(DestroyAPIView) : 
+    permission_classes = [permissions.IsAuthenticated]
     queryset = Comment.objects.all()
+
+    def get_queryset(self):
+        return Comment.objects.filter(user=self.request.user)
 
     def destroy(self, request, *args, **kwargs):
         comment = self.get_object()  
@@ -347,14 +388,14 @@ class CommentDeleteApiView(DestroyAPIView) :
         })
     
 class LikeCreateApiView(CreateAPIView) : 
+    permission_classes = [permissions.IsAuthenticated]
     queryset = Like.objects.all()
     serializer_class = LikeCreateSerializer
     
     def create(self, request, *args, **kwargs):
-        user_id = request.data.get('user')
         video_id = self.kwargs['pk']
 
-        like, created = Like.objects.get_or_create(user_id=user_id, video_id=video_id)
+        like, created = Like.objects.get_or_create(user_id=request.user.id, video_id=video_id)
 
         if not created:
             like.delete()
