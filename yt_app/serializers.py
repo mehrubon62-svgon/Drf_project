@@ -47,7 +47,7 @@ class ChannelUpdateSerializer(serializers.ModelSerializer) :
 
     class Meta :
         model = Channel
-        fields = ['name' , 'description' , 'owner' , 'updated']
+        fields = ['name' , 'description' , 'updated']
 
 class ChannelDetailSerializer(serializers.ModelSerializer) :
     owner = UserSerializer(read_only = True)
@@ -117,6 +117,12 @@ class VideoCreateSerializer(serializers.ModelSerializer) :
     class Meta :
         model = Video
         fields = ['title' , 'description' , 'channel']
+
+
+class VideoUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Video
+        fields = ['title', 'description']
     
 
 class VideoDetailSerializer(serializers.ModelSerializer) : 

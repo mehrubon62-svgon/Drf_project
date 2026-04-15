@@ -17,6 +17,7 @@ from rest_framework.generics import ListAPIView , CreateAPIView , DestroyAPIView
 from rest_framework.views import APIView
 from rest_framework import generics, permissions, status
 from django.contrib.auth import get_user_model
+from .permissions import IsObjectOwner
 
 User = get_user_model()
 
@@ -75,7 +76,7 @@ class ChannelDetailApiView(RetrieveAPIView) :
     serializer_class = ChannelDetailSerializer
 
 class ChannelUpdateApiView(UpdateAPIView) :
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsObjectOwner]
     queryset = Channel.objects.all()
     serializer_class = ChannelUpdateSerializer
 
@@ -90,7 +91,7 @@ class ChannelUpdateApiView(UpdateAPIView) :
         return Response(ChannelSerializer(channel).data)
     
 class ChannelDeleteApiView(DestroyAPIView) : 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsObjectOwner]
     queryset = Channel.objects.all()
 
     def get_queryset(self):
@@ -286,9 +287,9 @@ class VideoDetailApiView(RetrieveAPIView) :
         return Response(serializer.data)
     
 class VideoUpdateApiView(UpdateAPIView) : 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsObjectOwner]
     queryset = Video.objects.all()
-    serializer_class = VideoCreateSerializer
+    serializer_class = VideoUpdateSerializer
 
     def get_queryset(self):
         return Video.objects.filter(channel__owner=self.request.user)
@@ -320,7 +321,7 @@ class VideoUpdateApiView(UpdateAPIView) :
     
 
 class VideoDeleteApiView(DestroyAPIView) : 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsObjectOwner]
     queryset = Video.objects.all()
 
     def get_queryset(self):
@@ -372,7 +373,7 @@ class CommentDetailApiView(RetrieveAPIView) :
 
 
 class CommentDeleteApiView(DestroyAPIView) : 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsObjectOwner]
     queryset = Comment.objects.all()
 
     def get_queryset(self):
